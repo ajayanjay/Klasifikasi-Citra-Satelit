@@ -1,0 +1,34 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Caches and checkpoints
+.ipynb_checkpoints/
+.pytest_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# IDE and OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Large Raw Satellite GeoTIFF (>50 MB)
+# Citra satelit mentah diabaikan agar push ke GitHub cepat, lancar, dan tidak terkena limit batas ukuran file GitHub (50MB warning / 100MB limit).
+data/*.tif
+data/*.tiff
+
+# Pengecualian: Pastikan data klaster ringan (340 KB), CSV statistik, & hasil visualisasi tetap terlacak oleh Git
+!data/Hasil_Klaster_3Kelas_Karhutla.tif
+!data/*.csv
+!results/*.png
+
