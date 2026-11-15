@@ -6,6 +6,7 @@ __pycache__/
 # Caches and checkpoints
 .ipynb_checkpoints/
 .pytest_cache/
+.matplotlib/
 
 # Virtual environments
 venv/
@@ -22,13 +23,15 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 
+# Local context & notes (ignored from Git repository)
+context.md
+CONTEXT.md
+
 # Large Raw Satellite GeoTIFF (>50 MB)
-# Citra satelit mentah diabaikan agar push ke GitHub cepat, lancar, dan tidak terkena limit batas ukuran file GitHub (50MB warning / 100MB limit).
 data/*.tif
 data/*.tiff
 
-# Pengecualian: Pastikan data klaster ringan (340 KB), CSV statistik, & hasil visualisasi tetap terlacak oleh Git
+# Track lightweight cluster outputs, CSV tables, and result plots
 !data/Hasil_Klaster_3Kelas_Karhutla.tif
 !data/*.csv
 !results/*.png
-

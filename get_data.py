@@ -1,126 +1,202 @@
-"""
-=============================================================================
-MODUL GET DATA DAN VALIDASI CITRA SATELIT SENTINEL-2 (KARHUTLA GAMBUT KALTENG)
-=============================================================================
-Mata Kuliah : Pengolahan Citra Digital (PCD)
-Institusi   : D4 Teknik Informatika - Politeknik Negeri Bandung (POLBAN)
-Tim         : Kelompok 3B
-              - Idotoho Reimon Simajuntak (241524047)
-              - Ihsan Fauzi (241524048)
-              - Muhammad Azzar MannalHadi (241524051)
-
-Fungsi Script:
-1. Memeriksa ketersediaan berkas GeoTIFF di folder 'data/'
-2. Memberikan panduan cara export citra mentah dari Google Earth Engine (GEE)
-3. Melakukan inspeksi otomatis: resolusi spasial, jumlah band, tipe data, dan statistik dasar
-=============================================================================
-"""
-
 import os
 import sys
-import numpy as np
+import requests
+import ee
 
-try:
-    import tifffile as tiff
-except ImportError:
-    print("❌ Paket 'tifffile' belum terpasang. Jalankan: pip install tifffile imagecodecs")
-    sys.exit(1)
-
+GEE_PROJECT_ID = os.environ.get("GEE_PROJECT", "pcd-pra-tubes-511102")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, 'data')
+DATA_DIR = os.path.join(BASE_DIR, "data")
+os.makedirs(DATA_DIR, exist_ok=True)
 
-FILE_KLASTER = os.path.join(DATA_DIR, 'Hasil_Klaster_3Kelas_Karhutla.tif')
-FILE_S2_2025 = os.path.join(DATA_DIR, 'Citra_Sentinel2_Kalteng_2025.tif')
-FILE_S2_2019_PRE = os.path.join(DATA_DIR, 'Citra_Sentinel2_Kalteng_2019_Before.tif')
-FILE_S2_2019_POST = os.path.join(DATA_DIR, 'Citra_Sentinel2_Kalteng_2019_PasBakar.tif')
+ROIS = {
+    "ROI1_Pulang_Pisau": {
+        "desc": "Kawasan Gambut Eks-PLG (Pulang Pisau)",
+        "coords": [114.28, -2.75, 114.42, -2.62],
+    },
+    "ROI2_Kotawaringin_Timur": {
+        "desc": "Kawasan Ekspansi Monokultur (Kotawaringin Timur / Sampit)",
+        "coords": [112.78, -2.32, 112.92, -2.19],
+    },
+    "ROI3_Seruyan": {
+        "desc": "Zona Transisi Perkebunan dan Hutan Rawa (Seruyan)",
+        "coords": [112.38, -2.66, 112.52, -2.53],
+    }
+}
 
-def print_panduan_gee():
-    print("""
-=============================================================================
-ℹ️ PANDUAN MENGAMBIL DATA ('GET DATA') DARI GOOGLE EARTH ENGINE (GEE)
-=============================================================================
-1. Buka Google Earth Engine Code Editor: https://code.earthengine.google.com/
-2. Buat script baru dan salin seluruh isi berkas 'script_gee.js'.
-3. Klik tombol 'Run'.
-4. Di sebelah kanan atas editor GEE, buka tab 'Tasks'.
-5. Terdapat 4 tugas ekspor GeoTIFF:
-   - 'Citra_Sentinel2_Kalteng_2019_Before'   -> Citra asli satelit Sebelum Kebakaran 2019 (True Color RGB)
-   - 'Citra_Sentinel2_Kalteng_2019_PasBakar' -> Citra asli satelit Pas Kebakaran 2019 (True Color RGB Arang)
-   - 'Citra_Sentinel2_Kalteng_2025'          -> Citra multi-band 2025 (B2, B3, B4, B8, B11, B12)
-   - 'Hasil_Klaster_3Kelas_Karhutla'        -> Peta raster hasil klaster K-Means PCD
-6. Klik tombol 'Run' pada task yang ingin Anda ekspor ke Google Drive.
-7. Setelah selesai (centang biru), unduh file .tif dari Google Drive ke folder 'data/' di repositori ini.
-=============================================================================
-""")
 
-def validasi_berkas():
-    print("=" * 75)
-    print("🔍 MEMERIKSA STATUS BERKAS DATASET DI FOLDER 'data/'...")
-    print("=" * 75)
-
-    os.makedirs(DATA_DIR, exist_ok=True)
-
-    # 1. Periksa File Klaster
-    if os.path.exists(FILE_KLASTER):
-        size_kb = os.path.getsize(FILE_KLASTER) / 1024
-        print(f"✅ [DITEMUKAN] {os.path.basename(FILE_KLASTER)} ({size_kb:,.1f} KB)")
+def init_earth_engine():
+    print("[INFO] Menghubungkan ke Google Earth Engine API...")
+    try:
+        ee.Initialize(project=GEE_PROJECT_ID)
+        print(f"[INFO] Terhubung ke project: {GEE_PROJECT_ID}")
+    except Exception:
+        print("[WARN] Sesi belum terautentikasi. Membuka proses otorisasi...")
         try:
-            klaster_data = tiff.imread(FILE_KLASTER)
-            h, w = klaster_data.shape
-            unique, counts = np.unique(klaster_data, return_counts=True)
-            print(f"   • Dimensi Grid          : {w} x {h} piksel")
-            print(f"   • Tipe Data             : {klaster_data.dtype}")
-            total_burned = np.sum(klaster_data > 0)
-            print(f"   • Total Piksel Terbakar : {total_burned:,} piksel ({total_burned*0.01:,.2f} Ha)")
-            for u, c in zip(unique, counts):
-                label = 'Background / Tidak Terbakar' if u == 0 else f'Kelas {u}'
-                if u == 1: label += ' (Hijau Pulih / Suksesi)'
-                elif u == 2: label += ' (Semak Terbengkalai / Rawan Bakar Ulang)'
-                elif u == 3: label += ' (Lahan Terbuka / Perkotaan / Kupasan)'
-                print(f"     - Nilai {u}: {c:,} piksel ({c/total_burned*100 if total_burned and u>0 else 0:.2f}%) -> {label}")
-        except Exception as e:
-            print(f"   ⚠️ Gagal membaca konten TIFF: {e}")
+            ee.Authenticate()
+            ee.Initialize(project=GEE_PROJECT_ID)
+            print(f"[INFO] Autentikasi berhasil pada project: {GEE_PROJECT_ID}")
+        except Exception as err:
+            print(f"[ERROR] Gagal melakukan autentikasi GEE: {err}")
+            sys.exit(1)
+
+
+def mask_s2_clouds(image):
+    qa = image.select("QA60")
+    cloud_bit = 1 << 10
+    cirrus_bit = 1 << 11
+    mask = qa.bitwiseAnd(cloud_bit).eq(0).And(qa.bitwiseAnd(cirrus_bit).eq(0))
+
+    scl = image.select("SCL")
+    valid_scl = scl.neq(3).And(scl.neq(8)).And(scl.neq(9)).And(scl.neq(10))
+    return image.updateMask(mask).updateMask(valid_scl)
+
+
+def get_s2_composite(s2_col, geom, start_date, end_date, max_cloud=40):
+    bands = ["B2", "B3", "B4", "B8", "B11", "B12"]
+    return (
+        s2_col.filterDate(start_date, end_date)
+        .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", max_cloud))
+        .map(mask_s2_clouds)
+        .select(bands)
+        .median()
+        .unmask(0)
+        .clip(geom)
+        .multiply(0.0001)
+        .toFloat()
+    )
+
+
+def download_tif(ee_image, region, filename, scale=15):
+    filepath = os.path.join(DATA_DIR, filename)
+    if os.path.exists(filepath):
+        print(f"[INFO] File sudah tersedia, melewati: {filename}")
+        return filepath
+
+    print(f"[INFO] Mengunduh {filename} (resolusi {scale}m)...")
+    try:
+        url = ee_image.getDownloadURL({
+            "name": filename.replace(".tif", ""),
+            "scale": scale,
+            "crs": "EPSG:4326",
+            "region": region,
+            "format": "GEO_TIFF"
+        })
+        resp = requests.get(url, stream=True, timeout=180)
+        resp.raise_for_status()
+
+        with open(filepath, "wb") as f:
+            for chunk in resp.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    f.write(chunk)
+
+        size_mb = os.path.getsize(filepath) / (1024 * 1024)
+        print(f"[INFO] Tersimpan: {filepath} ({size_mb:.2f} MB)")
+        return filepath
+    except Exception as err:
+        print(f"[ERROR] Gagal mengunduh {filename}: {err}")
+        return None
+
+
+def fetch_roi_data(roi_name, roi_cfg, scale=15):
+    print(f"\n--- Memproses {roi_name}: {roi_cfg['desc']} ---")
+    min_lon, min_lat, max_lon, max_lat = roi_cfg["coords"]
+    geom = ee.Geometry.Rectangle([min_lon, min_lat, max_lon, max_lat])
+
+    s2 = ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED").filterBounds(geom)
+
+    # Deret Waktu Tahunan (2023 Pre -> 2023 Fire -> 2024 Y1 -> 2025 Y2 -> 2026 Y3)
+    # max_cloud dinaikkan ke 85% agar median filter memiliki sampel bebas awan yang cukup
+    pre_2023 = get_s2_composite(s2, geom, "2023-04-01", "2023-07-31", max_cloud=85)
+    fire_2023 = get_s2_composite(s2, geom, "2023-08-15", "2023-11-30", max_cloud=85)
+    y1_2024 = get_s2_composite(s2, geom, "2024-05-01", "2024-10-15", max_cloud=85)
+    y2_2025 = get_s2_composite(s2, geom, "2025-05-01", "2025-10-15", max_cloud=85)
+    now_2026 = get_s2_composite(s2, geom, "2026-05-01", "2026-10-15", max_cloud=85)
+
+    firms = (
+        ee.ImageCollection("FIRMS")
+        .filterBounds(geom)
+        .filterDate("2023-08-01", "2023-11-30")
+        .select("T21")
+        .max()
+        .unmask(0)
+        .clip(geom)
+        .toFloat()
+    )
+
+    jrc = (
+        ee.Image("JRC/GSW1_4/GlobalSurfaceWater")
+        .select("occurrence")
+        .unmask(0)
+        .clip(geom)
+        .toFloat()
+    )
+
+    aux_img = firms.addBands(jrc).rename(["firms_t21", "jrc_water"])
+
+    dw_col = (
+        ee.ImageCollection("GOOGLE/DYNAMICWORLD/V1")
+        .filterBounds(geom)
+        .filterDate("2026-06-01", "2026-09-30")
+        .select("label")
+    )
+    dw_mode = dw_col.reduce(ee.Reducer.mode()).rename("dw_label").clip(geom).toInt16()
+
+    # Tinggi kanopi GEDI L2A (RH98) hasil observasi LiDAR. Footprint GEDI bersifat
+    # sampel jarang, sehingga piksel tanpa observasi diberi nilai -1 (no data).
+    def mask_gedi(img):
+        valid = img.select("quality_flag").eq(1).And(img.select("degrade_flag").eq(0))
+        return img.updateMask(valid).select("rh98")
+
+    gedi = (
+        ee.ImageCollection("LARSE/GEDI/GEDI02_A_002_MONTHLY")
+        .filterBounds(geom)
+        .filterDate("2024-06-01", "2026-09-30")
+        .map(mask_gedi)
+        .median()
+        .unmask(-1)
+        .rename("gedi_rh98")
+        .clip(geom)
+        .toFloat()
+    )
+
+    download_tif(pre_2023, geom, f"{roi_name}_s2_2023_pre.tif", scale=scale)
+    download_tif(fire_2023, geom, f"{roi_name}_s2_2023_fire.tif", scale=scale)
+    download_tif(y1_2024, geom, f"{roi_name}_s2_2024_y1.tif", scale=scale)
+    download_tif(y2_2025, geom, f"{roi_name}_s2_2025_y2.tif", scale=scale)
+    download_tif(now_2026, geom, f"{roi_name}_s2_2026_now.tif", scale=scale)
+    download_tif(aux_img, geom, f"{roi_name}_aux_firms_water.tif", scale=scale)
+    download_tif(dw_mode, geom, f"{roi_name}_gt_dynamic_world_2026.tif", scale=scale)
+    download_tif(gedi, geom, f"{roi_name}_gedi_rh98.tif", scale=scale)
+
+
+def main():
+    init_earth_engine()
+    print("\nPilihan Unduhan Dataset Multi-Tahun (2023 - 2026):")
+    print("1. Semua ROI (Pulang Pisau, Kotawaringin Timur, Seruyan)")
+    print("2. ROI 2 (Kotawaringin Timur)")
+    print("3. ROI 1 (Pulang Pisau)")
+    print("4. ROI 3 (Seruyan)")
+
+    if len(sys.argv) > 1:
+        choice = sys.argv[1].strip()
     else:
-        print(f"❌ [TIDAK DITEMUKAN] {os.path.basename(FILE_KLASTER)}")
+        choice = input("Pilih nomor [1-4] (default 2): ").strip() or "2"
 
-    print("-" * 75)
-
-    # 2. Periksa File Sentinel-2 2025
-    if os.path.exists(FILE_S2_2025):
-        size_mb = os.path.getsize(FILE_S2_2025) / (1024 * 1024)
-        print(f"✅ [DITEMUKAN] {os.path.basename(FILE_S2_2025)} ({size_mb:,.1f} MB)")
-        try:
-            s2_data = tiff.imread(FILE_S2_2025)
-            print(f"   • Bentuk Array          : {s2_data.shape} (Tinggi, Lebar, Kanal)")
-            print(f"   • Tipe Data             : {s2_data.dtype}")
-            print(f"   • Susunan Band          : [B2-Blue, B3-Green, B4-Red, B8-NIR, B11-SWIR1, B12-SWIR2]")
-            print(f"   • Resolusi Spasial      : 10 meter/piksel (Surface Reflectance L2A)")
-        except Exception as e:
-            print(f"   ⚠️ Gagal membaca konten TIFF: {e}")
+    if choice == "1":
+        for k, v in ROIS.items():
+            fetch_roi_data(k, v, scale=15)
+    elif choice == "2":
+        fetch_roi_data("ROI2_Kotawaringin_Timur", ROIS["ROI2_Kotawaringin_Timur"], scale=15)
+    elif choice == "3":
+        fetch_roi_data("ROI1_Pulang_Pisau", ROIS["ROI1_Pulang_Pisau"], scale=15)
+    elif choice == "4":
+        fetch_roi_data("ROI3_Seruyan", ROIS["ROI3_Seruyan"], scale=15)
     else:
-        print(f"⚠️ [BELUM TERSEDIA] {os.path.basename(FILE_S2_2025)}")
+        print("[ERROR] Pilihan tidak dikenal.")
+        return
 
-    print("-" * 75)
+    print("\n[INFO] Seluruh proses pengunduhan deret waktu selesai. File tersimpan di folder data/.")
 
-    # 3. Periksa Citra Riil 2019 Before & Pasca-Bakar
-    found_2019 = True
-    for fpath in [FILE_S2_2019_PRE, FILE_S2_2019_POST]:
-        if os.path.exists(fpath):
-            size_mb = os.path.getsize(fpath) / (1024 * 1024)
-            print(f"✅ [DITEMUKAN] {os.path.basename(fpath)} ({size_mb:,.1f} MB)")
-        else:
-            print(f"ℹ️ [OPSIONAL / DAPAT DIUNDUH DARI GEE] {os.path.basename(fpath)}")
-            found_2019 = False
 
-    print("=" * 75)
-    if found_2019:
-        print("🎉 SEMPURNA! Citra kronologis riil 2019 & 2025 lengkap tersedia!")
-    else:
-        print("💡 TIP: Untuk menampilkan citra satelit murni Before 2019 & Pasca-Bakar 2019 di Python,")
-        print("   jalankan task export 'Citra_Sentinel2_Kalteng_2019_Before' & 'Citra_Sentinel2_Kalteng_2019_PasBakar' di GEE!")
-        print_panduan_gee()
-    print("=" * 75)
-
-if __name__ == '__main__':
-    validasi_berkas()
-
+if __name__ == "__main__":
+    main()

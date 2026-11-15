@@ -1,0 +1,5 @@
+Kelas_ID,Nama_Kelas,Jumlah_Piksel,Luas_Ha,Proporsi_Persen,Mean_NDVI_2026,Mean_NDMI_2026,Mean_BSI_2026,Mean_Homogeneity_2026,Mean_Contrast_2026,Mean_Entropy_2026,Jumlah_Footprint_GEDI,Mean_GEDI_RH98_m
+1,Structured Monoculture Vegetation,134457,1344.57,22.83,0.6278,0.1145,-0.0766,0.7971,0.5022,2.3653,175,5.15
+2,Degraded Shrubland,127006,1270.06,21.57,0.6194,0.1231,-0.0785,0.6265,1.7199,3.7987,328,5.92
+3,Natural Forest Succession,121182,1211.82,20.58,0.7317,0.2541,-0.2096,0.6495,1.645,3.5812,250,6.39
+4,Exposed Bare Peat / Unrecovered Land,206175,2061.75,35.01,0.4724,-0.0603,0.079,0.7202,1.1406,3.0102,383,7.12
