@@ -1,0 +1,9 @@
+target_image,algorithm,folder_key,method_type,runtime_seconds,buildings_count,total_building_pixels,coverage_percent,mean_building_area_px,median_aspect_ratio
+dense_core_crop_1500px,Adam Jaelani (2020) [CIELab K-Means],paper_lab_kmeans,CIELab + K-Means + Morphology,4.31,183,602251,26.77,3291.0,1.53
+dense_core_crop_1500px,Baluyan et al. (2013) [SVM 2-Pass],paper_baluyan_svm,Bilateral + K-Means + 8D SVM + 2-Pass,62.82,1103,227833,10.13,206.6,1.33
+dense_core_crop_1500px,Ma et al. (2019) [MABI Morphological],paper_morphological_mabi,Multiscale Directional MABI + MASI,1.97,116,2033978,90.4,17534.3,1.38
+dense_core_crop_1500px,Turker & Koc-San (2010) [Multispectral SVM],paper_turker_svm_pca,GLI + CIELAB + Texture + Pixel SVM,3.12,136,1773297,78.81,13038.9,1.48
+full_scene_overview_2048px,Adam Jaelani (2020) [CIELab K-Means],paper_lab_kmeans,CIELab + K-Means + Morphology,6.1,791,541228,20.6,684.2,1.37
+full_scene_overview_2048px,Baluyan et al. (2013) [SVM 2-Pass],paper_baluyan_svm,Bilateral + K-Means + 8D SVM + 2-Pass,252.78,1953,288129,10.97,147.5,1.36
+full_scene_overview_2048px,Ma et al. (2019) [MABI Morphological],paper_morphological_mabi,Multiscale Directional MABI + MASI,2.17,138,2254656,85.81,16338.1,1.5
+full_scene_overview_2048px,Turker & Koc-San (2010) [Multispectral SVM],paper_turker_svm_pca,GLI + CIELAB + Texture + Pixel SVM,5.76,1220,1183144,45.03,969.8,1.4
